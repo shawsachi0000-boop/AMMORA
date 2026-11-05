@@ -1,39 +1,29 @@
 
 package com.ammora.ai
 
+import android.Manifest
+import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
-import android.speech.RecognitionListener
 import android.speech.tts.TextToSpeech
-import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
 import java.util.Locale
-
-data class ChatMessage(
-    val message: String,
-    val isUser: Boolean
-)
 
 class MainActivity : ComponentActivity() {
 
@@ -44,12 +34,12 @@ class MainActivity : ComponentActivity() {
 
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale("hi", "IN")
+                tts?.language = Locale("en", "IN")
             }
         }
 
         setContent {
-            AmmoraScreen(
+            AmmoraApp(
                 onSpeak = { text ->
                     tts?.speak(
                         text,
@@ -70,18 +60,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AmmoraScreen(
-    onSpeak: (String) -> Unit
-) {
-    var input by remember { mutableStateOf("") }
-    var listening by remember { mutableStateOf(false) }
-
+fun AmmoraApp(onSpeak: (String) -> Unit) {
+    var message by remember { mutableStateOf("") }
+    var pendingMic by remember { mutableStateOf(false) }
     val messages = remember {
         mutableStateListOf(
-            ChatMessage(
-                "Hello! 💙 Main AMMORA hoon. Tum mujhe AMMO bula sakte ho.",
-                false
-            )
+            "AMMO: Hello! Main AMMO hoon. Aapki kya help kar sakti hoon?"
         )
     }
 
@@ -89,124 +73,89 @@ fun AmmoraScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
+            val spokenText =
+                result.data
+                    ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                    ?.firstOrNull()
 
-            val spoken = result.data
-                ?.getStringArrayListExtra(
-                    RecognizerIntent.EXTRA_RESULTS
-                )?.firstOrNull()
-
-            if (!spoken.isNullOrBlank()) {
-                input = spoken
-                listening = false
-            } else {
-                listening = false
+            if (!spokenText.isNullOrBlank()) {
+                message = spokenText
             }
         }
 
-    fun sendMessage() {
-        val question = input.trim()
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (granted && pendingMic) {
+                pendingMic = false
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                    )
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "AMMO ko boliye...")
+                }
+                speechLauncher.launch(intent)
+            } else {
+                pendingMic = false
+            }
+        }
 
-        if (question.isEmpty()) return
+    fun startListening() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "AMMO ko boliye...")
+        }
 
-        messages.add(ChatMessage(question, true))
-
-        val answer = AiBrain.reply(question)
-
-        messages.add(ChatMessage(answer, false))
-
-        onSpeak(answer)
-        input = ""
+        try {
+            speechLauncher.launch(intent)
+        } catch (_: Exception) {
+            messages.add("AMMO: Is phone par speech recognition available nahi hai.")
+        }
     }
 
-    val background = Brush.verticalGradient(
-        listOf(
-            Color(0xFF050817),
-            Color(0xFF101B36),
-            Color(0xFF070B19)
-        )
-    )
-
-    MaterialTheme {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = Color(0xFF080D18)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(background)
-                .padding(16.dp)
+                .padding(18.dp)
         ) {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        "AMMORA",
-                        color = Color.Cyan,
-                        fontSize = 25.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-
-                    Text(
-                        "YOUR PERSONAL AI",
-                        color = Color.LightGray,
-                        fontSize = 10.sp
-                    )
-                }
-
-                Spacer(Modifier.weight(1f))
-
-                Text(
-                    "● ONLINE",
-                    color = Color(0xFF42F5B0),
-                    fontSize = 12.sp
-                )
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(190.dp)
-                    .border(
-                        1.dp,
-                        Color.Cyan.copy(alpha = 0.7f),
-                        RoundedCornerShape(24.dp)
-                    )
-                    .background(
-                        Color(0xFF101B36),
-                        RoundedCornerShape(24.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        "AMMO",
-                        color = Color.Cyan,
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Text(
-                        "I'm listening to you 💙",
-                        color = Color.White,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
             Text(
-                "CONVERSATION",
-                color = Color.Cyan,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
+                text = "AMMORA",
+                color = Color(0xFF36D9FF),
+                fontSize = 30.sp
             )
 
-            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "YOUR PERSONAL AI ASSISTANT",
+                color = Color.LightGray,
+                fontSize = 12.sp
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "HELLO, I'M AMMO",
+                color = Color.White,
+                fontSize = 23.sp
+            )
+
+            Text(
+                text = "Talk to me or type a message.",
+                color = Color.Gray,
+                fontSize = 14.sp
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
 
             LazyColumn(
                 modifier = Modifier
@@ -215,117 +164,102 @@ fun AmmoraScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(messages) { item ->
+                    val isAmmo = item.startsWith("AMMO:")
 
-                    Row(
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement =
-                            if (item.isUser)
-                                Arrangement.End
-                            else
-                                Arrangement.Start
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isAmmo) {
+                                Color(0xFF172B40)
+                            } else {
+                                Color(0xFF263047)
+                            }
+                        )
                     ) {
                         Text(
-                            text = item.message,
+                            text = item,
                             color = Color.White,
-                            fontSize = 14.sp,
-                            modifier = Modifier
-                                .widthIn(max = 290.dp)
-                                .background(
-                                    if (item.isUser)
-                                        Color(0xFF174D83)
-                                    else
-                                        Color(0xFF202B45),
-                                    RoundedCornerShape(16.dp)
-                                )
-                                .padding(13.dp)
+                            modifier = Modifier.padding(14.dp),
+                            fontSize = 15.sp
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = message,
+                onValueChange = { message = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text("Message AMMO...")
+                },
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = Color(0xFF36D9FF),
+                    unfocusedBorderColor = Color.Gray,
+                    focusedPlaceholderColor = Color.Gray,
+                    unfocusedPlaceholderColor = Color.Gray,
+                    cursorColor = Color(0xFF36D9FF)
+                )
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Color(0xFF18243D),
-                        CircleShape
-                    )
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-
-                BasicTextField(
-                    value = input,
-                    onValueChange = { input = it },
+                Button(
+                    onClick = {
+                        val question = message.trim()
+                        if (question.isNotEmpty()) {
+                            messages.add("You: $question")
+                            val answer = AiBrain.reply(question)
+                            messages.add("AMMO: $answer")
+                            onSpeak(answer)
+                            message = ""
+                        }
+                    },
                     modifier = Modifier
                         .weight(1f)
-                        .padding(10.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        color = Color.White,
-                        fontSize = 14.sp
-                    ),
-                    singleLine = true,
-                    decorationBox = { innerTextField ->
-                        Box {
-                            if (input.isEmpty()) {
-                                Text(
-                                    "Ask AMMO anything...",
-                                    color = Color.Gray,
-                                    fontSize = 14.sp
-                                )
-                            }
-                            innerTextField()
-                        }
-                    }
-                )
-
-                TextButton(
-                    onClick = {
-                        listening = true
-
-                        val intent = Intent(
-                            RecognizerIntent.ACTION_RECOGNIZE_SPEECH
-                        ).apply {
-                            putExtra(
-                                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                            )
-                            putExtra(
-                                RecognizerIntent.EXTRA_LANGUAGE,
-                                "hi-IN"
-                            )
-                        }
-
-                        speechLauncher.launch(intent)
-                    }
-                ) {
-                    Text("🎙", fontSize = 20.sp)
-                }
-
-                Button(
-                    onClick = { sendMessage() },
+                        .height(52.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF087EE5)
-                    ),
-                    contentPadding = PaddingValues(
-                        horizontal = 14.dp,
-                        vertical = 10.dp
+                        containerColor = Color(0xFF087FA8)
                     )
                 ) {
                     Text("SEND")
                 }
+
+                Button(
+                    onClick = {
+                        val permissionGranted =
+                            ContextCompat.checkSelfPermission(
+                                androidx.compose.ui.platform.LocalContext.current,
+                                Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                        if (permissionGranted) {
+                            startListening()
+                        } else {
+                            pendingMic = true
+                            permissionLauncher.launch(
+                                Manifest.permission.RECORD_AUDIO
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF243C59)
+                    )
+                ) {
+                    Text("🎙 MIC")
+                }
             }
-
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                if (listening) "Listening..." else "AMMORA AI • Version 1.0",
-                color = Color.Gray,
-                fontSize = 10.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
         }
     }
 }
