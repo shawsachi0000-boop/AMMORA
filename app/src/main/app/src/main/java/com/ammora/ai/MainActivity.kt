@@ -1,8 +1,8 @@
-
 package com.ammora.ai
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
@@ -19,10 +19,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import android.content.pm.PackageManager
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
 
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale("en", "IN")
+                tts?.language = Locale("hi", "IN")
             }
         }
 
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
                         text,
                         TextToSpeech.QUEUE_FLUSH,
                         null,
-                        "AMMORA_REPLY"
+                        "AMMO_REPLY"
                     )
                 }
             )
@@ -61,11 +61,15 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AmmoraApp(onSpeak: (String) -> Unit) {
+
+    val context = LocalContext.current
+
     var message by remember { mutableStateOf("") }
     var pendingMic by remember { mutableStateOf(false) }
+
     val messages = remember {
         mutableStateListOf(
-            "AMMO: Hello! Main AMMO hoon. Aapki kya help kar sakti hoon?"
+            "AMMO: Hello Sachin! Main AMMO hoon. Aapki kya help kar sakti hoon?"
         )
     }
 
@@ -73,10 +77,12 @@ fun AmmoraApp(onSpeak: (String) -> Unit) {
         rememberLauncherForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
-            val spokenText =
-                result.data
-                    ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                    ?.firstOrNull()
+
+            val spokenText = result.data
+                ?.getStringArrayListExtra(
+                    RecognizerIntent.EXTRA_RESULTS
+                )
+                ?.firstOrNull()
 
             if (!spokenText.isNullOrBlank()) {
                 message = spokenText
@@ -87,36 +93,78 @@ fun AmmoraApp(onSpeak: (String) -> Unit) {
         rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
+
             if (granted && pendingMic) {
                 pendingMic = false
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+
+                val intent = Intent(
+                    RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+                ).apply {
                     putExtra(
                         RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                         RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
                     )
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
-                    putExtra(RecognizerIntent.EXTRA_PROMPT, "AMMO ko boliye...")
+                    putExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE,
+                        "hi-IN"
+                    )
+                    putExtra(
+                        RecognizerIntent.EXTRA_PROMPT,
+                        "AMMO ko boliye"
+                    )
                 }
-                speechLauncher.launch(intent)
+
+                try {
+                    speechLauncher.launch(intent)
+                } catch (_: Exception) {
+                    messages.add(
+                        "AMMO: Speech recognition available nahi hai."
+                    )
+                }
             } else {
                 pendingMic = false
+                messages.add(
+                    "AMMO: Microphone permission nahi mili."
+                )
             }
         }
 
     fun startListening() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-            )
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "AMMO ko boliye...")
-        }
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
 
-        try {
-            speechLauncher.launch(intent)
-        } catch (_: Exception) {
-            messages.add("AMMO: Is phone par speech recognition available nahi hai.")
+        if (granted) {
+            val intent = Intent(
+                RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+            ).apply {
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                )
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE,
+                    "hi-IN"
+                )
+                putExtra(
+                    RecognizerIntent.EXTRA_PROMPT,
+                    "AMMO ko boliye"
+                )
+            }
+
+            try {
+                speechLauncher.launch(intent)
+            } catch (_: Exception) {
+                messages.add(
+                    "AMMO: Speech recognition available nahi hai."
+                )
+            }
+        } else {
+            pendingMic = true
+            permissionLauncher.launch(
+                Manifest.permission.RECORD_AUDIO
+            )
         }
     }
 
@@ -129,6 +177,7 @@ fun AmmoraApp(onSpeak: (String) -> Unit) {
                 .fillMaxSize()
                 .padding(18.dp)
         ) {
+
             Text(
                 text = "AMMORA",
                 color = Color(0xFF36D9FF),
@@ -150,7 +199,7 @@ fun AmmoraApp(onSpeak: (String) -> Unit) {
             )
 
             Text(
-                text = "Talk to me or type a message.",
+                text = "Your assistant is ready.",
                 color = Color.Gray,
                 fontSize = 14.sp
             )
@@ -164,6 +213,7 @@ fun AmmoraApp(onSpeak: (String) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(messages) { item ->
+
                     val isAmmo = item.startsWith("AMMO:")
 
                     Card(
@@ -200,8 +250,6 @@ fun AmmoraApp(onSpeak: (String) -> Unit) {
                     unfocusedTextColor = Color.White,
                     focusedBorderColor = Color(0xFF36D9FF),
                     unfocusedBorderColor = Color.Gray,
-                    focusedPlaceholderColor = Color.Gray,
-                    unfocusedPlaceholderColor = Color.Gray,
                     cursorColor = Color(0xFF36D9FF)
                 )
             )
@@ -212,14 +260,19 @@ fun AmmoraApp(onSpeak: (String) -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+
                 Button(
                     onClick = {
                         val question = message.trim()
+
                         if (question.isNotEmpty()) {
                             messages.add("You: $question")
+
                             val answer = AiBrain.reply(question)
+
                             messages.add("AMMO: $answer")
                             onSpeak(answer)
+
                             message = ""
                         }
                     },
@@ -234,22 +287,7 @@ fun AmmoraApp(onSpeak: (String) -> Unit) {
                 }
 
                 Button(
-                    onClick = {
-                        val permissionGranted =
-                            ContextCompat.checkSelfPermission(
-                                androidx.compose.ui.platform.LocalContext.current,
-                                Manifest.permission.RECORD_AUDIO
-                            ) == PackageManager.PERMISSION_GRANTED
-
-                        if (permissionGranted) {
-                            startListening()
-                        } else {
-                            pendingMic = true
-                            permissionLauncher.launch(
-                                Manifest.permission.RECORD_AUDIO
-                            )
-                        }
-                    },
+                    onClick = { startListening() },
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp),
