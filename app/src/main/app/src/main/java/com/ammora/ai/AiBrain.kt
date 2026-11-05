@@ -1,71 +1,48 @@
-
 package com.ammora.ai
-
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 object AiBrain {
 
-    fun reply(message: String): String {
-
-        val q = message.trim().lowercase(Locale.ROOT)
-
-        if (q.isBlank()) {
-            return "Mujhe kuch sunai nahi diya. Dobara bolo."
-        }
+    fun reply(question: String): String {
+        val q = question.lowercase(LocaleHolder.ROOT)
 
         return when {
-
-            q.matches(Regex("^(hi|hello|hey|hii).*")) ->
-                "Hey! 💙 Main AMMORA hoon. Tum mujhe AMMO bula sakte ho."
+            q.contains("hello") ||
+            q.contains("hi") ||
+            q.contains("namaste") ||
+            q.contains("नमस्ते") ->
+                "Hello! Main AMMO hoon. Aaj main aapki kya help kar sakti hoon?"
 
             q.contains("your name") ||
             q.contains("naam kya") ||
-            q.contains("who are you") ->
-                "Mera naam AMMORA hai, short name AMMO."
+            q.contains("tum kaun") ->
+                "Mera naam AMMO hai. Main AMMORA personal assistant hoon."
 
             q.contains("time") ||
-            q.contains("samay") ||
-            q.contains("kitne baje") ->
-                "Abhi time hai " +
-                SimpleDateFormat("hh:mm a", Locale.getDefault())
-                    .format(Date())
+            q.contains("समय") ->
+                "Abhi ka time aapke phone ki clock mein dekh sakte hain."
 
-            q.contains("date") ||
-            q.contains("tarikh") ||
-            q.contains("aaj kya date") ->
-                "Aaj ki date hai " +
-                SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
-                    .format(Date())
+            q.contains("joke") ||
+            q.contains("मजाक") ->
+                "Teacher: Homework kahan hai? Student: Sir, homework bhi work hai, aur main work from home kar raha tha!"
 
             q.contains("how are you") ||
             q.contains("kaisi ho") ->
-                "Main bilkul ready hoon! Tum kaise ho? 😊"
-
-            q.contains("joke") ||
-            q.contains("mazak") ->
-                "Computer doctor ke paas gaya. Doctor bola: tumhe virus hai! 😂"
+                "Main bilkul ready hoon! Aap bataiye kaise hain?"
 
             q.contains("thank") ||
-            q.contains("shukriya") ->
-                "You're welcome! Hamesha khushi se help karungi. 💙"
+            q.contains("धन्यवाद") ->
+                "You're welcome! Aapki help karke khushi hui."
 
-            q.contains("good morning") ->
-                "Good morning! Tumhara din bahut achha ho. ☀️"
-
-            q.contains("good night") ->
-                "Good night! Sweet dreams. 🌙"
-
-            q.contains("love you") ->
-                "Aww! Tum bahut sweet ho. 💙"
-
-            q.contains("help") ||
-            q.contains("madad") ->
-                "Bolo, kis kaam mein help chahiye?"
+            q.contains("bye") ||
+            q.contains("अलविदा") ->
+                "Bye! Phir milte hain."
 
             else ->
-                "Main tumhari baat sun rahi hoon. 😊 Is starter version mein meri AI knowledge limited hai. Aage real AI brain connect karenge."
+                "Main abhi basic offline mode mein hoon. Is sawal ka intelligent jawab dene ke liye mujhe online AI connection chahiye."
         }
+    }
+
+    private object LocaleHolder {
+        val ROOT: java.util.Locale = java.util.Locale.ROOT
     }
 }
